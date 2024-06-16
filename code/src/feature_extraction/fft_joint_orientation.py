@@ -23,7 +23,7 @@ def fft_orientation_angles(orientation_angles):
     
     return fft_features.flatten()  # 将特征向量展平
 
-def fft_orientation_angles_new(orientation_angles, num_features=10):
+def fft_orientation_angles_new(orientation_angles, num_features=1):
     num_frames, num_joints = orientation_angles.shape
     # 更新：只选择每个关节FFT结果的前num_features个频率分量
     fft_features = np.zeros((num_joints, num_features))

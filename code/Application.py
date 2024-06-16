@@ -13,6 +13,8 @@ from src.feature_extraction.fft_joint_orientation import calculate_orientation_a
 from src.preprocessing.motion_trajectory_analysis import autocorrelation, calculate_curvature, create_feature_vector
 from src.feature_extraction.fft_joint_displacement import calculate_displacement_signal, extract_fft_features
 
+from sklearn.preprocessing import StandardScaler
+
 
 
 delta_t = 1
@@ -113,7 +115,7 @@ def preprocess_and_extract_features(filepath):
     if not isinstance(keypoints_data, pd.DataFrame):
         keypoints_data = pd.DataFrame(keypoints_data)
 
-    print(keypoints_data)
+    # print(keypoints_data)
 
     keypoints_data = expand_keypoints(keypoints_data)
 
@@ -148,7 +150,7 @@ def preprocess_and_extract_features(filepath):
         keypoints_list = interpolated_data['keypoints'].tolist()
         keypoints_array = np.array(keypoints_list)
         angle_displacement_feature = build_angle_displacement_histogram(keypoints_array, delta_t, num_bins)
-        print("Extracted angle displacement feature:", angle_displacement_feature)
+        # print("Extracted angle displacement feature:", angle_displacement_feature)
 
         # 计算相对方向直方图特征
         right_arm = [(2, 3), (3, 4)]
@@ -159,12 +161,12 @@ def preprocess_and_extract_features(filepath):
         limb_joints = [right_arm, left_arm, right_leg, left_leg, torso]
 
         relative_direction_feature  = build_relative_direction_histogram(keypoints_array, limb_joints, num_bins)
-        print("Extracted relative direction feature:", relative_direction_feature)
+        # print("Extracted relative direction feature:", relative_direction_feature)
 
         # 计算FFT关节位移
         displacement_signal = calculate_displacement_signal(keypoints)
         fft_features = extract_fft_features(displacement_signal)
-        print("Extracted FFT features:", fft_features)
+        # print("Extracted FFT features:", fft_features)
 
         # 计算FFT关节相对位移
         keypoints_list = interpolated_data['keypoints'].tolist()
@@ -174,7 +176,7 @@ def preprocess_and_extract_features(filepath):
 
         orientation_angles = calculate_orientation_angles(joint_positions)
         fft_features_orientation = fft_orientation_angles_new(orientation_angles)
-        print("FFT features for joint orientations:", fft_features_orientation)
+        # print("FFT features for joint orientations:", fft_features_orientation)
 
         x, y = joint_positions[:, 0, 0], joint_positions[:, 0, 1]
         curvature = calculate_curvature(x, y)
@@ -182,7 +184,7 @@ def preprocess_and_extract_features(filepath):
 
         # 创建特征向量
         feature_vector = create_feature_vector(curvature, autocorr)
-        print("Feature vector:", feature_vector)
+        # print("Feature vector:", feature_vector)
 
         print("Shape of angle_displacement_feature:", angle_displacement_feature.shape)
         print("Shape of relative_direction_feature:", relative_direction_feature.shape)
@@ -190,15 +192,36 @@ def preprocess_and_extract_features(filepath):
         print("Shape of feature_vector:", feature_vector.shape)
         print("Shape of fft_features_orientation:", fft_features_orientation.shape)
 
+        scaler1 = StandardScaler()
+        angle_displacement_feature_scaled = scaler1.fit_transform(angle_displacement_feature.reshape(-1, 1))
+
+        scaler2 = StandardScaler()
+        relative_direction_feature_scaled = scaler2.fit_transform(relative_direction_feature.reshape(-1, 1))
+
+        scaler3 = StandardScaler()
+        fft_features_scaled = scaler3.fit_transform(fft_features.reshape(-1, 1))
+
+        scaler4 = StandardScaler()
+        feature_vector_scaled = scaler4.fit_transform(feature_vector.reshape(-1, 1))
+
+        scaler5 = StandardScaler()
+        fft_features_orientation_scaled = scaler5.fit_transform(fft_features_orientation.reshape(-1, 1))
+
+        angle_displacement_feature_scaled = angle_displacement_feature_scaled.reshape(1, -1)
+        relative_direction_feature_scaled = relative_direction_feature_scaled.reshape(1, -1)
+        fft_features_scaled = fft_features_scaled.reshape(1, -1)
+        feature_vector_scaled = feature_vector_scaled.reshape(1, -1)
+        fft_features_orientation_scaled = fft_features_orientation_scaled.reshape(1, -1)
+
+
         # 堆叠
-        combined_feature_vector = np.hstack([angle_displacement_feature, relative_direction_feature, fft_features, feature_vector, fft_features_orientation])
+        combined_feature_vector = np.hstack([angle_displacement_feature_scaled, relative_direction_feature_scaled, fft_features_scaled, feature_vector_scaled, fft_features_orientation_scaled])
         features_list.append(combined_feature_vector)
     
     X = np.vstack(features_list)
-    
+    print("Shape of X:", X.shape)
+    print("First 5 rows of X:", X[:5])
 
-
-    X = np.vstack(features_list)
     return X
 
 def predict(model, X):
@@ -212,7 +235,7 @@ def predict_probabilities(model, X):
 
 def main_predict():
     model = joblib.load('model.pkl')  # 加载模型
-    filepath = "output_pose.npy"
+    filepath = "output_pose_2.npy"
     X = preprocess_and_extract_features(filepath)
     predictions = predict(model, X)
     print("Predictions:", predictions)

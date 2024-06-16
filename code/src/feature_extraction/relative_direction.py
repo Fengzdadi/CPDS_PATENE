@@ -17,7 +17,7 @@ def calculate_relative_direction(joint1, joint2):
     return np.degrees(angle)  # 将结果从弧度转换为度
 
 
-def build_relative_direction_histogram(keypoints, limb_joints, num_bins=10):
+def build_relative_direction_histogram(keypoints, limb_joints, num_bins=2):
     """
     为每个肢体构建相对方向的直方图。
     

@@ -43,6 +43,12 @@ def train_stacking_model(X, y):
     
     return stacking_model
 
+def predict_probabilities(model, X):
+    """
+    使用模型对特征数据 X 进行概率预测。
+    """
+    return model.predict_proba(X)  # 返回概率
+
 def evaluate_stacking_model(model, X_test, y_test):
     """
     评估融合模型的性能。
@@ -60,13 +66,16 @@ def evaluate_stacking_model(model, X_test, y_test):
     
     # 计算准确率
     accuracy = accuracy_score(y_test, y_pred)
+    probabilities = predict_probabilities(model, X_test)
     print(f"Stacking Model Accuracy: {accuracy}")
 
     results_df = pd.DataFrame({
         'Actual': y_test,
-        'Predicted': y_pred
+        'Predicted': y_pred,
+        'Probability_0': probabilities[:, 0],
     })
 
     print(results_df)
+    
     
     return accuracy

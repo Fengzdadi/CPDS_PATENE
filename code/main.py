@@ -14,6 +14,8 @@ from src.preprocessing.motion_trajectory_analysis import autocorrelation, calcul
 from src.feature_extraction.fft_joint_displacement import calculate_displacement_signal, extract_fft_features
 from model.stacking_model import evaluate_stacking_model, train_stacking_model
 import joblib
+from sklearn.preprocessing import StandardScaler
+
 # from .src.models import calculate_joint_orientation_angles_for_limb, extract_fft_features_for_limb_orientation
 
 
@@ -36,15 +38,20 @@ labels_list = []
 
 def main():
     # 数据目录
-    # data_directory = "C:\\Users\\caifengze\\Desktop\\CPDS_PATENE\\data\\00_25J_MRGB\\MRGBD"      #MRGBD
-    data_directory = "C:\\Users\\caifengze\\Desktop\\CPDS_PATENE\\data\\00_25J_RVI_38_Full\\25J_RVI38_Full_Processed"      #RVI_38_Full_Processed
+    data_directory = "C:\\Users\\caifengze\\Desktop\\CPDS_PATENE\\data\\00_25J_MRGB\\MRGBD"      #MRGBD
+    # data_directory = "C:\\Users\\caifengze\\Desktop\\CPDS_PATENE\\data\\00_25J_RVI_38_Full\\25J_RVI38_Full_Processed"      #RVI_38_Full_Processed
     # data_directory = "C:\\Users\\caifengze\\Desktop\\CPDS_PATENE\\data\\00_25J_RVI_38_Full_mini\\25J_RVI38_Full_Processed"      #RVI_38_Full_Processed
 
     # 步骤1: 加载数据
     print("Loading data...")
     keypoints_data = load_keypoints_with_frame_info(data_directory)
-    print(keypoints_data)
+    # print(keypoints_data)
     print(np.shape(keypoints_data))
+
+    # if not isinstance(keypoints_data, pd.DataFrame):
+    #     keypoints_data = pd.DataFrame(keypoints_data)
+    
+    # keypoints_data.to_csv("keypoints_data.csv", index=False)
 
     if not isinstance(keypoints_data, pd.DataFrame):
         keypoints_data = pd.DataFrame(keypoints_data)
@@ -106,15 +113,17 @@ def main():
     # 步骤3: 特征提取
     print("Extracting features...")
     for video_id, group in keypoints_data.groupby('video_id'):
+        group.to_csv(f"group_{video_id}.csv", index=False)
         # 提取这个组的关键点列表
         keypoints_list = group['keypoints'].tolist()
+        print("keypoints_list",keypoints_list[:10])
         # 将列表转换为NumPy数组以供特征提取函数使用
-        keypoints_data = np.array(keypoints_list)
+        # keypoints_data_new = np.array(keypoints_list)
     
         # 特征提取的代码逻辑
 
         # 计算角位移直方图特征
-        keypoints_list = interpolated_data['keypoints'].tolist()  # 将DataFrame列转换为列表
+        # keypoints_list = interpolated_data['keypoints'].tolist()  # 将DataFrame列转换为列表
         keypoints_array = np.array(keypoints_list)  # 将列表转换为NumPy数组
         angle_displacement_feature = build_angle_displacement_histogram(keypoints_array, delta_t, num_bins)
         print("Extracted angle displacement feature:", angle_displacement_feature)
@@ -128,12 +137,12 @@ def main():
         limb_joints = [right_arm, left_arm, right_leg, left_leg, torso]
 
         relative_direction_feature  = build_relative_direction_histogram(keypoints_array, limb_joints, num_bins)
-        print("Extracted relative direction feature:", relative_direction_feature)
+        # print("Extracted relative direction feature:", relative_direction_feature)
 
         # 计算FFT关节位移
         displacement_signal = calculate_displacement_signal(keypoints)
         fft_features = extract_fft_features(displacement_signal)
-        print("Extracted FFT features:", fft_features)
+        # print("Extracted FFT features:", fft_features)
 
         # 计算FFT关节相对位移
         keypoints_list = interpolated_data['keypoints'].tolist()
@@ -142,8 +151,8 @@ def main():
         joint_positions = np.array(keypoints_list).reshape(num_frames, num_joints, 3)[:, :, :2]  # 假设最后一个维度是[x, y, confidence]，这里我们只取[x, y]
 
         orientation_angles = calculate_orientation_angles(joint_positions)
-        fft_features_orientation = fft_orientation_angles_new(orientation_angles,10)
-        print("FFT features for joint orientations:", fft_features_orientation)
+        fft_features_orientation = fft_orientation_angles_new(orientation_angles)
+        # print("FFT features for joint orientations:", fft_features_orientation)
 
         # num_frames = len(keypoints_list)
         # # num_joints = len(keypoints_list[0]) // 2  # 假设每个关键点有x和y两个坐标值
@@ -195,13 +204,40 @@ def main():
         print("Shape of feature_vector:", feature_vector.shape)
         print("Shape of fft_features_orientation:", fft_features_orientation.shape)
 
+        scaler1 = StandardScaler()
+        angle_displacement_feature_scaled = scaler1.fit_transform(angle_displacement_feature.reshape(-1, 1))
+
+        scaler2 = StandardScaler()
+        relative_direction_feature_scaled = scaler2.fit_transform(relative_direction_feature.reshape(-1, 1))
+
+        scaler3 = StandardScaler()
+        fft_features_scaled = scaler3.fit_transform(fft_features.reshape(-1, 1))
+
+        scaler4 = StandardScaler()
+        feature_vector_scaled = scaler4.fit_transform(feature_vector.reshape(-1, 1))
+
+        scaler5 = StandardScaler()
+        fft_features_orientation_scaled = scaler5.fit_transform(fft_features_orientation.reshape(-1, 1))
+
+        angle_displacement_feature_scaled = angle_displacement_feature_scaled.reshape(1, -1)
+        relative_direction_feature_scaled = relative_direction_feature_scaled.reshape(1, -1)
+        fft_features_scaled = fft_features_scaled.reshape(1, -1)
+        feature_vector_scaled = feature_vector_scaled.reshape(1, -1)
+        fft_features_orientation_scaled = fft_features_orientation_scaled.reshape(1, -1)
+
+        # print("angle_displacement_feature_scaled",angle_displacement_feature_scaled)
+        # print("relative_direction_feature_scaled",relative_direction_feature_scaled)
+        # print("fft_features_scaled",fft_features_scaled)
+        # print("feature_vector_scaled",feature_vector_scaled)
+        # print("fft_features_orientation_scaled",fft_features_orientation_scaled)
 
         # 堆叠
-        combined_feature_vector = np.hstack([angle_displacement_feature, relative_direction_feature, fft_features, feature_vector, fft_features_orientation])
+        combined_feature_vector = np.hstack([angle_displacement_feature_scaled, relative_direction_feature_scaled, fft_features_scaled, feature_vector_scaled, fft_features_orientation_scaled])
         features_list.append(combined_feature_vector)
 
     X = np.vstack(features_list)  # 特征矩阵
-    y = np.array([0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    y = np.array([0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1])
+    # y = np.array([0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
     # 将X转换为DataFrame
     features_df = pd.DataFrame(X)
